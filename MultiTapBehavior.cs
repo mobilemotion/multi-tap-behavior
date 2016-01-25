@@ -3,10 +3,12 @@ using System.Windows.Input;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Input;
 using Microsoft.Xaml.Interactivity;
+using Windows.UI.Xaml.Markup;
 
 /// <summary>
 /// XAML Behaviour that executes a command after a given number of taps (similar to douple-tap).
 /// </summary>
+[ContentProperty(Name = "Actions")]
 public class MultiTapBehavior : DependencyObject, IBehavior
 {
 	#region Behavior
@@ -18,7 +20,7 @@ public class MultiTapBehavior : DependencyObject, IBehavior
 	/// <param name="associatedObject"></param>
 	public void Attach(DependencyObject associatedObject)
 	{
-		var el = associatedObject as FrameworkElement;
+		var el = associatedObject as UIElement;
 		if (el != null)
 		{
 			el.Tapped += ElementOnTapped;
@@ -32,7 +34,7 @@ public class MultiTapBehavior : DependencyObject, IBehavior
 	/// </summary>
 	public void Detach()
 	{
-		var el = AssociatedObject as FrameworkElement;
+		var el = AssociatedObject as UIElement;
 		if (el != null)
 		{
 			el.Tapped -= ElementOnTapped;
@@ -57,7 +59,7 @@ public class MultiTapBehavior : DependencyObject, IBehavior
 
 	#endregion
 
-	#region Command property
+	#region Command and CommandParameter properties
 
 	public static readonly DependencyProperty CommandProperty = DependencyProperty.Register(
 		"Command", typeof(ICommand), typeof(MultiTapBehavior), new PropertyMetadata(default(ICommand)));
@@ -68,10 +70,6 @@ public class MultiTapBehavior : DependencyObject, IBehavior
 		set { SetValue(CommandProperty, value); }
 	}
 
-	#endregion
-
-	#region CommandParameter property
-
 	public static readonly DependencyProperty CommandParameterProperty = DependencyProperty.Register(
 		"CommandParameter", typeof(object), typeof(MultiTapBehavior), new PropertyMetadata(null));
 
@@ -79,6 +77,27 @@ public class MultiTapBehavior : DependencyObject, IBehavior
 	{
 		get { return GetValue(CommandParameterProperty); }
 		set { SetValue(CommandParameterProperty, value); }
+	}
+
+	#endregion
+
+	#region ActionCollection property
+
+	public static readonly DependencyProperty ActionsProperty =
+		DependencyProperty.Register("Actions", typeof(ActionCollection), typeof(MultiTapBehavior), new PropertyMetadata(null));
+
+	public ActionCollection Actions
+	{
+		get
+		{
+			ActionCollection actionCollection = (ActionCollection) GetValue(ActionsProperty);
+			if (actionCollection == null)
+			{
+				actionCollection = new ActionCollection();
+				SetValue(ActionsProperty, actionCollection);
+			}
+			return actionCollection;
+		}
 	}
 
 	#endregion
@@ -141,12 +160,16 @@ public class MultiTapBehavior : DependencyObject, IBehavior
 
 		if (_currentTapCount >= TapCount)
 		{
-			// If TapCount threshold is met, execute the given Command...
+			// If TapCount threshold is met:
+			// Execute the given Command, if specified...
 			if (Command != default(ICommand))
 			{
 				if (Command.CanExecute(CommandParameter))
 					Command.Execute(CommandParameter);
 			}
+
+			// ...trigger the specified actions...
+			Interaction.ExecuteActions(AssociatedObject, Actions, null);
 
 			// ...and reset the tap counter
 			_previousTapTime = null;
